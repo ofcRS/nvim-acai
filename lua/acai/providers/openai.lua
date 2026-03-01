@@ -1,38 +1,21 @@
 local M = {}
 
-local SYSTEM_PROMPT = [[You are a code completion engine. You are given the current file context with a cursor position marked by <CURSOR>.
-Output ONLY the code that should be inserted at the cursor position.
-Rules:
-- Do NOT include any explanation, comments about the completion, or markdown formatting
-- Do NOT repeat code that already exists before or after the cursor
-- Output ONLY the raw code to insert
-- If no completion is appropriate, output nothing]]
+local shared = require("acai.providers")
 
 ---Build an OpenAI-compatible chat completions request.
 ---@param ctx table {prefix, suffix, filetype, filename}
 ---@param cfg table {api_key_env, api_base, model, max_tokens, temperature}
 ---@return table {url, headers, body}
 function M.build_request(ctx, cfg)
-  local api_key = os.getenv(cfg.api_key_env)
-  if not api_key or api_key == "" then
-    error("[acai] " .. cfg.api_key_env .. " is not set")
-  end
-
-  local user_content = string.format(
-    "File: %s (filetype: %s)\n\n%s<CURSOR>%s",
-    ctx.filename or "untitled",
-    ctx.filetype or "text",
-    ctx.prefix,
-    ctx.suffix
-  )
+  local api_key = shared.get_api_key(cfg)
 
   local body = vim.json.encode({
     model = cfg.model,
     max_tokens = cfg.max_tokens,
     temperature = cfg.temperature,
     messages = {
-      { role = "system", content = SYSTEM_PROMPT },
-      { role = "user", content = user_content },
+      { role = "system", content = shared.SYSTEM_PROMPT },
+      { role = "user", content = shared.build_user_content(ctx) },
     },
   })
 
@@ -56,9 +39,7 @@ function M.parse_response(raw)
   end
 
   if data.error then
-    vim.schedule(function()
-      vim.notify("[acai] API error: " .. (data.error.message or vim.inspect(data.error)), vim.log.levels.WARN)
-    end)
+    shared.notify_api_error(data.error)
     return nil
   end
 
@@ -72,27 +53,7 @@ function M.parse_response(raw)
     return nil
   end
 
-  return M.clean_response(text)
-end
-
----Strip markdown fences and preamble from AI response.
----@param text string
----@return string
-function M.clean_response(text)
-  -- Remove leading/trailing whitespace
-  text = text:match("^%s*(.-)%s*$")
-
-  -- Remove markdown code fences: ```lang\n...\n```
-  text = text:gsub("^```%w*\n?(.-)\n?```$", "%1")
-
-  -- Remove "Here is..." or "Here's..." preamble lines
-  text = text:gsub("^[Hh]ere%s+is[^\n]*\n", "")
-  text = text:gsub("^[Hh]ere's[^\n]*\n", "")
-
-  -- Trim again after cleaning
-  text = text:match("^%s*(.-)%s*$")
-
-  return text
+  return shared.clean_response(text)
 end
 
 return M

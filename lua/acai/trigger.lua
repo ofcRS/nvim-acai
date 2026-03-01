@@ -7,6 +7,7 @@ local completion = require("acai.completion")
 local augroup = vim.api.nvim_create_augroup("acai_trigger", { clear = true })
 local debounced_request = nil
 local cancel_debounce = nil
+local close_debounce = nil
 local attached = false
 
 ---Check if a completion menu (blink.cmp or nvim-cmp) popup is visible.
@@ -48,7 +49,7 @@ function M.attach()
   attached = true
 
   local config = require("acai.config").get()
-  debounced_request, cancel_debounce = util.debounce(function()
+  debounced_request, cancel_debounce, close_debounce = util.debounce(function()
     if popup_visible() or is_excluded() then
       return
     end
@@ -58,7 +59,7 @@ function M.attach()
   vim.api.nvim_create_autocmd("TextChangedI", {
     group = augroup,
     callback = function()
-      if not config.completion.auto_trigger then
+      if not require("acai.config").get().completion.auto_trigger then
         return
       end
       -- Clear existing ghost text immediately on new input
@@ -88,15 +89,18 @@ function M.attach()
   })
 end
 
----Detach all autocmds.
+---Detach all autocmds and release the debounce timer.
 function M.detach()
   if not attached then
     return
   end
   attached = false
   vim.api.nvim_clear_autocmds({ group = augroup })
-  if cancel_debounce then
-    cancel_debounce()
+  if close_debounce then
+    close_debounce()
+    close_debounce = nil
+    cancel_debounce = nil
+    debounced_request = nil
   end
   completion.cancel()
   ghost.clear()

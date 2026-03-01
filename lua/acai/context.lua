@@ -9,26 +9,35 @@ function M.get()
   local row = cursor[1] -- 1-indexed
   local col = cursor[2] -- 0-indexed byte offset
 
-  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local config = require("acai.config").get()
+  local max_chars = config.completion.max_context_chars
+
+  -- Read only the lines we could plausibly need (conservative: 1 char/line).
+  -- This avoids loading the entire buffer for large files.
+  local line_count = vim.api.nvim_buf_line_count(buf)
+  local half = math.ceil(max_chars / 2)
+  local start_idx = math.max(0, row - 1 - half) -- 0-indexed
+  local end_idx = math.min(line_count, row + half) -- 0-indexed exclusive
+  local lines = vim.api.nvim_buf_get_lines(buf, start_idx, end_idx, false)
+
   if #lines == 0 then
     return nil
   end
 
-  local config = require("acai.config").get()
-  local max_chars = config.completion.max_context_chars
+  -- Cursor row relative to the loaded window (1-indexed in Lua array)
+  local rel_row = row - start_idx
 
-  -- Build prefix: all lines before cursor line + current line up to cursor
+  -- Build prefix: lines before cursor + current line up to cursor
   local prefix_parts = {}
   local prefix_chars = 0
-  -- Current line up to cursor
-  local current_line = lines[row] or ""
+  local current_line = lines[rel_row] or ""
   local before_cursor = current_line:sub(1, col)
 
   -- Collect lines before cursor (reverse, to prioritize nearby context)
   local pre_lines = {}
-  for i = row - 1, 1, -1 do
+  for i = rel_row - 1, 1, -1 do
     local line = lines[i]
-    if prefix_chars + #line + 1 > max_chars / 2 then
+    if prefix_chars + #line + 1 > half then
       break
     end
     pre_lines[#pre_lines + 1] = line
@@ -48,9 +57,9 @@ function M.get()
   suffix_parts[#suffix_parts + 1] = after_cursor
   suffix_chars = suffix_chars + #after_cursor
 
-  for i = row + 1, #lines do
+  for i = rel_row + 1, #lines do
     local line = lines[i]
-    if suffix_chars + #line + 1 > max_chars / 2 then
+    if suffix_chars + #line + 1 > half then
       break
     end
     suffix_parts[#suffix_parts + 1] = line

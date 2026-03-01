@@ -52,43 +52,34 @@ function M.accept()
   return true
 end
 
----Accept only the first word of the suggestion.
-function M.accept_word()
-  local word = ghost.get_first_word()
-  if not word then
+---Insert a partial suggestion (first word or first line) at the cursor.
+---@param get_text_fn function Returns the text to insert, or nil if nothing to accept
+---@return boolean
+local function accept_partial(get_text_fn)
+  local text = get_text_fn()
+  if not text then
     return false
   end
 
   ghost.clear()
   completion.cancel()
 
-  -- Insert the word at cursor
   local col = vim.api.nvim_win_get_cursor(0)[2]
   local line = vim.api.nvim_get_current_line()
-  local new_line = line:sub(1, col) .. word .. line:sub(col + 1)
-  vim.api.nvim_set_current_line(new_line)
-  vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], col + #word })
+  vim.api.nvim_set_current_line(line:sub(1, col) .. text .. line:sub(col + 1))
+  vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], col + #text })
 
   return true
 end
 
+---Accept only the first word of the suggestion.
+function M.accept_word()
+  return accept_partial(ghost.get_first_word)
+end
+
 ---Accept only the first line of the suggestion.
 function M.accept_line()
-  local first_line = ghost.get_first_line()
-  if not first_line then
-    return false
-  end
-
-  ghost.clear()
-  completion.cancel()
-
-  local col = vim.api.nvim_win_get_cursor(0)[2]
-  local line = vim.api.nvim_get_current_line()
-  local new_line = line:sub(1, col) .. first_line .. line:sub(col + 1)
-  vim.api.nvim_set_current_line(new_line)
-  vim.api.nvim_win_set_cursor(0, { vim.api.nvim_win_get_cursor(0)[1], col + #first_line })
-
-  return true
+  return accept_partial(ghost.get_first_line)
 end
 
 ---Dismiss the current suggestion.
