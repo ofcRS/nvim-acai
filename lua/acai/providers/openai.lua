@@ -33,27 +33,13 @@ end
 ---@param raw string JSON response
 ---@return string|nil completion text
 function M.parse_response(raw)
-  local ok, data = pcall(vim.json.decode, raw)
-  if not ok or not data then
-    return nil
-  end
-
-  if data.error then
-    shared.notify_api_error(data.error)
-    return nil
-  end
-
-  local choices = data.choices
-  if not choices or #choices == 0 then
-    return nil
-  end
-
-  local text = choices[1].message and choices[1].message.content
-  if not text then
-    return nil
-  end
-
-  return shared.clean_response(text)
+  return shared.parse_response(raw, function(data)
+    local choices = data.choices
+    if not choices or #choices == 0 then
+      return nil
+    end
+    return choices[1].message and choices[1].message.content
+  end)
 end
 
 return M

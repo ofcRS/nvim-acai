@@ -34,34 +34,18 @@ end
 ---@param raw string JSON response
 ---@return string|nil completion text
 function M.parse_response(raw)
-  local ok, data = pcall(vim.json.decode, raw)
-  if not ok or not data then
-    return nil
-  end
-
-  if data.error then
-    shared.notify_api_error(data.error)
-    return nil
-  end
-
-  local content = data.content
-  if not content or #content == 0 then
-    return nil
-  end
-
-  local text = nil
-  for _, block in ipairs(content) do
-    if block.type == "text" then
-      text = block.text
-      break
+  return shared.parse_response(raw, function(data)
+    local content = data.content
+    if not content or #content == 0 then
+      return nil
     end
-  end
-
-  if not text then
+    for _, block in ipairs(content) do
+      if block.type == "text" then
+        return block.text
+      end
+    end
     return nil
-  end
-
-  return shared.clean_response(text)
+  end)
 end
 
 return M

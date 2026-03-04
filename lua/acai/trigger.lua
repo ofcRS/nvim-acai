@@ -10,18 +10,28 @@ local cancel_debounce = nil
 local close_debounce = nil
 local attached = false
 
+-- Module caches: false = not yet checked, nil = checked but unavailable
+local blink_mod = false
+local cmp_mod = false
+
 ---Check if a completion menu (blink.cmp or nvim-cmp) popup is visible.
 ---@return boolean
 local function popup_visible()
   -- blink.cmp
-  local blink_ok, blink = pcall(require, "blink.cmp")
-  if blink_ok and blink.is_visible and blink.is_visible() then
+  if blink_mod == false then
+    local ok, mod = pcall(require, "blink.cmp")
+    blink_mod = ok and mod or nil
+  end
+  if blink_mod and blink_mod.is_visible and blink_mod.is_visible() then
     return true
   end
 
   -- nvim-cmp
-  local cmp_ok, cmp = pcall(require, "cmp")
-  if cmp_ok and cmp.visible and cmp.visible() then
+  if cmp_mod == false then
+    local ok, mod = pcall(require, "cmp")
+    cmp_mod = ok and mod or nil
+  end
+  if cmp_mod and cmp_mod.visible and cmp_mod.visible() then
     return true
   end
 

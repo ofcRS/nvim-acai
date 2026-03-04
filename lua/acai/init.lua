@@ -149,50 +149,39 @@ end
 local function setup_keymaps()
   local km = config.get().keymaps
 
-  -- Accept: Tab (falls through if no suggestion visible)
+  -- Accept: Tab (unique expr + fallthrough behavior)
   if km.accept then
     vim.keymap.set("i", km.accept, function()
       if ghost.is_visible() then
         M.accept()
         return ""
       end
-      -- Fall through to default Tab behavior
       return vim.api.nvim_replace_termcodes(km.accept, true, false, true)
     end, { expr = true, silent = true, desc = "Acai: accept suggestion" })
   end
 
-  -- Accept word
-  if km.accept_word then
-    vim.keymap.set("i", km.accept_word, function()
-      if ghost.is_visible() then
-        M.accept_word()
-      end
-    end, { silent = true, desc = "Acai: accept word" })
-  end
-
-  -- Accept line
-  if km.accept_line then
-    vim.keymap.set("i", km.accept_line, function()
-      if ghost.is_visible() then
-        M.accept_line()
-      end
-    end, { silent = true, desc = "Acai: accept line" })
-  end
-
-  -- Dismiss
-  if km.dismiss then
-    vim.keymap.set("i", km.dismiss, function()
-      if ghost.is_visible() then
-        M.dismiss()
-      end
-    end, { silent = true, desc = "Acai: dismiss suggestion" })
-  end
-
-  -- Manual suggest
+  -- Suggest: no visibility guard
   if km.suggest then
     vim.keymap.set("i", km.suggest, function()
       M.suggest()
     end, { silent = true, desc = "Acai: trigger suggestion" })
+  end
+
+  -- Visibility-gated keymaps
+  local gated = {
+    { key = "accept_word", action = M.accept_word, desc = "accept word" },
+    { key = "accept_line", action = M.accept_line, desc = "accept line" },
+    { key = "dismiss",     action = M.dismiss,     desc = "dismiss suggestion" },
+  }
+  for _, entry in ipairs(gated) do
+    if km[entry.key] then
+      local action = entry.action
+      vim.keymap.set("i", km[entry.key], function()
+        if ghost.is_visible() then
+          action()
+        end
+      end, { silent = true, desc = "Acai: " .. entry.desc })
+    end
   end
 end
 

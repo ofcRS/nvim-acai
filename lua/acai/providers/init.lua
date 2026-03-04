@@ -55,6 +55,29 @@ function M.clean_response(text)
   return util.trim(text)
 end
 
+---Shared response parsing: JSON decode, error check, extract text, clean.
+---@param raw string JSON response
+---@param extract_text function(data): string|nil Provider-specific text extractor
+---@return string|nil completion text
+function M.parse_response(raw, extract_text)
+  local ok, data = pcall(vim.json.decode, raw)
+  if not ok or not data then
+    return nil
+  end
+
+  if data.error then
+    M.notify_api_error(data.error)
+    return nil
+  end
+
+  local text = extract_text(data)
+  if not text then
+    return nil
+  end
+
+  return M.clean_response(text)
+end
+
 ---Register a provider module.
 ---@param name string
 ---@param provider table Must implement build_request(ctx, cfg) and parse_response(raw)
