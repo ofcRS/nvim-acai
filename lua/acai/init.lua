@@ -149,15 +149,18 @@ end
 local function setup_keymaps()
   local km = config.get().keymaps
 
-  -- Accept: Tab (unique expr + fallthrough behavior)
+  -- Accept: when a suggestion is visible, insert it; otherwise fall through to
+  -- the key's default behavior. This must NOT be an expr mapping — expr mappings
+  -- run under textlock and may not modify the buffer (E565).
   if km.accept then
     vim.keymap.set("i", km.accept, function()
       if ghost.is_visible() then
         M.accept()
-        return ""
+      else
+        local keys = vim.api.nvim_replace_termcodes(km.accept, true, false, true)
+        vim.api.nvim_feedkeys(keys, "n", false)
       end
-      return vim.api.nvim_replace_termcodes(km.accept, true, false, true)
-    end, { expr = true, silent = true, desc = "Acai: accept suggestion" })
+    end, { silent = true, desc = "Acai: accept suggestion" })
   end
 
   -- Suggest: no visibility guard
