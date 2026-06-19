@@ -2,6 +2,10 @@
 
 AI inline autocomplete for Neovim. Ghost text suggestions as you type, like Copilot — but works with **any AI provider**.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="nvim-acai ghost text completion demo" width="760">
+</p>
+
 Supports [OpenRouter](https://openrouter.ai), OpenAI, Anthropic, and any OpenAI-compatible API (Groq, Ollama, Together, etc).
 
 ## Requirements
