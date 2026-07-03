@@ -12,7 +12,7 @@ local current_job = nil
 function M.cancel()
   request_id = request_id + 1
   if current_job then
-    pcall(vim.fn.jobstop, current_job)
+    http.cancel(current_job)
     current_job = nil
   end
 end
@@ -41,13 +41,19 @@ function M.request()
 
   local my_request_id = request_id
 
-  current_job = http.post(req.url, req.headers, req.body, function(err, response)
-    current_job = nil
+  -- Snapshot the context the completion is computed for, so a response
+  -- that arrives after the user typed or moved can be discarded.
+  local buf = vim.api.nvim_get_current_buf()
+  local tick = vim.api.nvim_buf_get_changedtick(buf)
+  local cursor = vim.api.nvim_win_get_cursor(0)
 
-    -- Stale request — ignore
+  current_job = http.post(req.url, req.headers, req.body, function(err, response)
+    -- Stale request — ignore. Checked first so a late callback from a
+    -- cancelled job doesn't clobber the handle of the job that replaced it.
     if my_request_id ~= request_id then
       return
     end
+    current_job = nil
 
     if err then
       vim.notify("[acai] " .. err, vim.log.levels.WARN)
@@ -55,11 +61,21 @@ function M.request()
     end
 
     local text = provider.parse_response(response)
-    if text and text ~= "" then
-      -- Only show if still in insert mode
-      if vim.fn.mode() == "i" then
-        ghost.show(text)
-      end
+    if not text or text == "" then
+      return
+    end
+
+    -- Only show if the editing context is unchanged since the request:
+    -- still in insert mode, same buffer, no edits, cursor in place.
+    local pos = vim.api.nvim_win_get_cursor(0)
+    if
+      vim.fn.mode() == "i"
+      and vim.api.nvim_get_current_buf() == buf
+      and vim.api.nvim_buf_get_changedtick(buf) == tick
+      and pos[1] == cursor[1]
+      and pos[2] == cursor[2]
+    then
+      ghost.show(text)
     end
   end)
 end

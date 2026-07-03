@@ -1,0 +1,5 @@
+#!/bin/sh
+# curl stub for tests: consume the stdin body like `curl -d @-`, then
+# print a fixed multi-line response body.
+cat > /dev/null
+printf '{\n  "greeting": "hi",\n\n  "n": 1\n}\n'

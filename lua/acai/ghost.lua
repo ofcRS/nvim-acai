@@ -3,6 +3,7 @@ local M = {}
 local ns = vim.api.nvim_create_namespace("acai_ghost")
 local current_suggestion = nil
 local current_extmark_id = nil
+local current_buf = nil
 
 ---Show ghost text at the current cursor position.
 ---@param text string The suggestion text (may be multi-line)
@@ -42,15 +43,16 @@ function M.show(text)
 
   current_extmark_id = vim.api.nvim_buf_set_extmark(buf, ns, row, col, opts)
   current_suggestion = text
+  current_buf = buf
 end
 
----Clear ghost text from the current buffer.
+---Clear ghost text from the buffer it was shown in.
 function M.clear()
-  if current_extmark_id then
-    local buf = vim.api.nvim_get_current_buf()
-    pcall(vim.api.nvim_buf_del_extmark, buf, ns, current_extmark_id)
-    current_extmark_id = nil
+  if current_extmark_id and current_buf and vim.api.nvim_buf_is_valid(current_buf) then
+    pcall(vim.api.nvim_buf_del_extmark, current_buf, ns, current_extmark_id)
   end
+  current_extmark_id = nil
+  current_buf = nil
   current_suggestion = nil
 end
 
@@ -66,13 +68,15 @@ function M.get_suggestion()
   return current_suggestion
 end
 
----Get the first word of the current suggestion.
+---Get the first word of the current suggestion, including any leading
+---indentation on the same line. Nil if the suggestion starts with a
+---newline (there is no first word to insert inline).
 ---@return string|nil
 function M.get_first_word()
   if not current_suggestion then
     return nil
   end
-  return current_suggestion:match("^(%S+)")
+  return current_suggestion:match("^([ \t]*%S+)")
 end
 
 ---Get the first line of the current suggestion.

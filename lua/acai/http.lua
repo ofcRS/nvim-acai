@@ -17,38 +17,32 @@ function M.post(url, headers, body, callback)
   cmd[#cmd + 1] = "-d"
   cmd[#cmd + 1] = "@-" -- read body from stdin
 
-  local stdout_chunks = {}
-  local stderr_chunks = {}
+  local stdout_lines = {}
+  local stderr_lines = {}
 
   local job_id = vim.fn.jobstart(cmd, {
     stdin = "pipe",
-    stdout_buffered = false,
-    stderr_buffered = false,
+    -- Buffered: each callback receives the complete output as a list of
+    -- lines, so joining with "\n" reconstructs the body byte-for-byte.
+    stdout_buffered = true,
+    stderr_buffered = true,
     on_stdout = function(_, data)
       if data then
-        for _, chunk in ipairs(data) do
-          if chunk ~= "" then
-            stdout_chunks[#stdout_chunks + 1] = chunk
-          end
-        end
+        stdout_lines = data
       end
     end,
     on_stderr = function(_, data)
       if data then
-        for _, chunk in ipairs(data) do
-          if chunk ~= "" then
-            stderr_chunks[#stderr_chunks + 1] = chunk
-          end
-        end
+        stderr_lines = data
       end
     end,
     on_exit = function(_, exit_code)
       vim.schedule(function()
         if exit_code ~= 0 then
-          local err = table.concat(stderr_chunks, "\n")
+          local err = table.concat(stderr_lines, "\n")
           callback("curl error (exit " .. exit_code .. "): " .. err, nil)
         else
-          local response = table.concat(stdout_chunks, "")
+          local response = table.concat(stdout_lines, "\n")
           callback(nil, response)
         end
       end)
@@ -65,6 +59,12 @@ function M.post(url, headers, body, callback)
   vim.fn.chanclose(job_id, "stdin")
 
   return job_id
+end
+
+---Stop an in-flight request started by M.post.
+---@param job_id number
+function M.cancel(job_id)
+  pcall(vim.fn.jobstop, job_id)
 end
 
 return M
